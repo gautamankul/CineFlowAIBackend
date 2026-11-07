@@ -1,9 +1,9 @@
 import os
 from celery import Celery
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "cineflowai.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "cineflow.settings")
 
-app = Celery("cineflowai")
+app = Celery("cineflow")
 
 app.config_from_object("django.conf:settings", namespace="CELERY")
 
