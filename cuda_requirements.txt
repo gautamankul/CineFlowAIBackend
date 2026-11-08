@@ -1,0 +1,20 @@
+Django
+djangorestframework
+djangorestframework-simplejwt
+django-cors-headers
+celery
+redis
+pillow
+
+# PyTorch installed separately with CUDA support
+# python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+# torch
+# torchvision
+# torchaudio
+
+diffusers
+transformers
+accelerate
+peft
+safetensors
+python-dotenv

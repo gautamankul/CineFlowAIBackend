@@ -233,6 +233,7 @@ python manage.py createsuperuser
 python manage.py runserver 127.0.0.1:8000        terminal 1
 celery -A cineflow worker --loglevel=info        terminal 2 
 celery -A cineflow worker -l info --pool=solo    for window only 
+celery -A cineflow worker --concurrency=1         for speesd up
 redis-server                                     terminal 3
 
 ```

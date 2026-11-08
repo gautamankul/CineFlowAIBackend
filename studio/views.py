@@ -1,19 +1,10 @@
-
 from rest_framework import decorators, response, status, viewsets
-
 from .models import Character, Project, Scene
-from .serializers import (
-    CharacterSerializer,
-    ProjectSerializer,
-    SceneSerializer,
-)
-from .tasks import (
-    assemble_video_task,
-    generate_scene_task,
-    generate_storyboard_task,
-)
+from .serializers import (CharacterSerializer, ProjectSerializer, SceneSerializer, )
+from .tasks import (assemble_video_task, generate_scene_task, generate_storyboard_task, )
 
 
+# Create views here.
 class ProjectViewSet(viewsets.ModelViewSet):
     queryset = Project.objects.all().order_by("-updated_at")
     serializer_class = ProjectSerializer
