@@ -12,28 +12,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @decorators.action(detail=True, methods=["post"])
     def storyboard(self, request, pk=None):
         scene_count = int(request.data.get("scene_count", 3))
-
-        generate_storyboard_task.delay(
-            str(pk),
-            scene_count,
-        )
-
-        return response.Response(
-            {"queued": True},
-            status=status.HTTP_202_ACCEPTED,
-        )
+        generate_storyboard_task.delay(str(pk),scene_count,)
+        return response.Response({"queued": True},status=status.HTTP_202_ACCEPTED,)
 
     @decorators.action(detail=True, methods=["post"])
     def generate_all(self, request, pk=None):
         project = Project.objects.get(pk=pk)
-
         for scene in project.scenes.all():
             generate_scene_task.delay(scene.id)
-
-        return response.Response(
-            {"queued": True},
-            status=status.HTTP_202_ACCEPTED,
-        )
+        return response.Response({"queued": True},status=status.HTTP_202_ACCEPTED,)
 
     @decorators.action(detail=True, methods=["post"])
     def assemble(self, request, pk=None):

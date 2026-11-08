@@ -1,6 +1,6 @@
 """Celery tasks for CineFlowAI. Run GPU tasks with --pool=solo --concurrency=1."""
 import logging
-
+from django.core.exceptions import ObjectDoesNotExist
 from celery import shared_task
 from .cuda_ai.text_model import make_storyboard
 from .cuda_ai.image_model import generate_image, unload_image_pipeline
@@ -42,6 +42,11 @@ def generate_scene_task(scene_id):
     logger.info("Starting scene generation | Scene ID: %s", scene_id)
     try:
         scene = Scene.objects.get(pk=scene_id)
+    except ObjectDoesNotExist:
+        logger.warning("Scene %s no longer exists, skipping (stale task)", scene_id)
+        return {"status": "skipped", "scene_id": scene_id}
+
+    try:
         scene.status = "generating_image"
         scene.error_message = ""
         scene.save(update_fields=["status", "error_message"])

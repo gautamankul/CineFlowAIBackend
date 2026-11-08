@@ -8,6 +8,7 @@ from pathlib import Path
 import torch
 from django.conf import settings
 from diffusers import LCMScheduler, StableDiffusionPipeline
+from django.utils.text import slugify
 
 logger = logging.getLogger(__name__)
 MODEL_ID = "stable-diffusion-v1-5/stable-diffusion-v1-5"
@@ -60,15 +61,28 @@ def unload_image_pipeline():
 
 
 def generate_image(scene, release_gpu=True):
-    """Return a path relative to MEDIA_ROOT; do not save the Django model here."""
+    """Generate an image and save it under the project title."""
     global _pipe
+
     with _pipe_lock:
         prompt = (scene.image_prompt or "").strip()
+
         if not prompt:
             raise ValueError("Scene image_prompt is empty")
-        pipe = result = image = None
+
+        # Get project title from the related Project model.
+        project_title = scene.project.name
+
+        # Convert title into a safe directory name.
+        title = slugify(project_title) or f"project-{scene.project_id}"
+
+        pipe = None
+        result = None
+        image = None
+
         try:
             pipe = get_pipeline()
+
             with torch.inference_mode():
                 result = pipe(
                     prompt=prompt,
@@ -77,17 +91,38 @@ def generate_image(scene, release_gpu=True):
                     width=512,
                     height=512,
                 )
+
             image = result.images[0]
-            rel_path = f"scenes/images/{uuid.uuid4().hex}.png"
+
+            # Save under: title/scenes/images/uuid.png
+            rel_path = (
+                f"{title}/scenes/images/"
+                f"{uuid.uuid4().hex}.png"
+            )
+
             full_path = Path(settings.MEDIA_ROOT) / rel_path
-            full_path.parent.mkdir(parents=True, exist_ok=True)
+
+            full_path.parent.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+
             image.save(full_path)
-            logger.info("Saved image for scene %s: %s", scene.pk, rel_path)
+
+            logger.info(
+                "Saved image for scene %s: %s",
+                scene.pk,
+                rel_path,
+            )
+
             return rel_path
+
         finally:
             image = None
             result = None
+
             if release_gpu:
                 _pipe = None
                 pipe = None
+
             cleanup_memory()

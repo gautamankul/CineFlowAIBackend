@@ -284,10 +284,25 @@ Replace `YOUR_DJANGO_PROJECT` with the Django project module containing your Cel
 
 For GPU-intensive video generation, use a dedicated worker with concurrency set to one:
 
+with
+
+```bash
+$env:RUST_BACKTRACE="full" 
+```
+
 ```bash
 celery -A YOUR_DJANGO_PROJECT worker \
     --loglevel=info \
     --concurrency=1
+```
+
+or 
+
+```bash
+celery -A cineflow worker `
+>>     --pool=solo `
+>>     --concurrency=1 `
+>>     --loglevel=INFO
 ```
 
 If you have configured separate Celery queues, start workers for the corresponding queues.

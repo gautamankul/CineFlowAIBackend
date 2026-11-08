@@ -8,13 +8,13 @@ import logging
 import threading
 import time
 import uuid
-from pathlib import Path
-
 import torch
 from django.conf import settings
+from pathlib import Path
 from diffusers import AutoencoderKLWan, WanPipeline
 from diffusers.schedulers.scheduling_unipc_multistep import UniPCMultistepScheduler
 from diffusers.utils import export_to_video
+from django.utils.text import slugify
 
 logger = logging.getLogger(__name__)
 MODEL_ID = "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"
@@ -87,10 +87,127 @@ def unload_wan():
         logger.info("Wan pipeline reference cleared")
 
 
-def generate_clip(scene, release_gpu=True):
+def generate_clip_old(scene, release_gpu=True):
     global _pipe
     with _pipe_lock:
         prompt = (scene.video_prompt or "").strip()
         if not prompt:
             raise ValueError("Scene video_prompt is empty")
         pipe = result = frames = None
+
+
+def generate_clip(scene, release_gpu=True):
+    """Generate a video and save it under the project title."""
+    global _pipe
+
+    with _pipe_lock:
+        prompt = (scene.video_prompt or "").strip()
+
+        if not prompt:
+            raise ValueError("Scene video_prompt is empty")
+
+        # Get project title.
+        project_title = scene.project.name
+
+        # Convert title into a safe folder name.
+        title = (
+                slugify(project_title)
+                or f"project-{scene.project_id}"
+        )
+
+        start_time = time.time()
+
+        pipe = None
+        result = None
+        frames = None
+
+        try:
+            check_cuda()
+
+            pipe = load_wan()
+
+            cleanup_memory()
+
+            torch.cuda.reset_peak_memory_stats()
+
+            logger.info(
+                "Generating video | Scene ID: %s",
+                scene.pk,
+            )
+
+            with torch.inference_mode():
+                result = pipe(
+                    prompt=prompt,
+                    height=HEIGHT,
+                    width=WIDTH,
+                    num_frames=NUM_FRAMES,
+                    num_inference_steps=NUM_STEPS,
+                    guidance_scale=5.0,
+                )
+
+            frames = result.frames[0]
+
+            torch.cuda.synchronize()
+
+            elapsed = time.time() - start_time
+
+            peak_vram = (
+                    torch.cuda.max_memory_allocated()
+                    / (1024 ** 3)
+            )
+
+            logger.info(
+                "Video generation time: %.1f seconds",
+                elapsed,
+            )
+
+            logger.info(
+                "Peak GPU memory: %.2f GiB",
+                peak_vram,
+            )
+
+            # Save under: title/scenes/videos/uuid.mp4
+            rel_path = (
+                f"{title}/scenes/videos/"
+                f"{uuid.uuid4().hex}.mp4"
+            )
+
+            full_path = (
+                    Path(settings.MEDIA_ROOT) / rel_path
+            )
+
+            full_path.parent.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+
+            export_to_video(
+                frames,
+                str(full_path),
+                fps=FPS,
+            )
+
+            logger.info(
+                "Video saved | Scene ID: %s | Path: %s",
+                scene.pk,
+                rel_path,
+            )
+
+            return rel_path
+
+        except Exception:
+            logger.exception(
+                "Video generation failed | Scene ID: %s",
+                scene.pk,
+            )
+            raise
+
+        finally:
+            frames = None
+            result = None
+
+            if release_gpu:
+                _pipe = None
+                pipe = None
+
+            cleanup_memory()
